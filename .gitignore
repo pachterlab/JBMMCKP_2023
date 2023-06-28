@@ -1,0 +1,16 @@
+*.Rproj
+.Rproj.user
+.Rhistory
+.Rdata
+.rprofile
+.renviron
+.log
+.seed
+.settings
+.gitmodules
+.dylib
+.httr-oauth
+.DS_Store
+inst/doc
+docs
+figures
