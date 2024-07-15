@@ -1,0 +1,151 @@
+---
+title: "Concordex Cerebellum Figures"
+output: html_notebook
+---
+```{r setup, include=FALSE}
+library(knitr)
+
+# Set global chunk options
+opts_chunk$set(
+  echo = FALSE,     # Display R code in the output
+  warning = FALSE, # Suppress warnings
+  message = FALSE,  # Suppress messages
+  cache.extra=rand_seed
+
+)
+
+set.seed(5296)
+```
+
+Load  `concordexR` and some extra libraries for plotting and utility functions. 
+
+```{r Load Libraries, warning=FALSE, message=FALSE}
+library(tidyr)
+library(dplyr)
+
+# Needed for PCA results
+library(scuttle)
+library(scater)
+
+library(ggplot2)
+library(fs)
+library(readr)
+
+# devtools::install_github("pachterlab/concordexR")
+library(concordexR)
+
+data_dir <- fs::path("data/cerebellum/")
+```
+
+Data obtained from [here](https://singlecell.broadinstitute.org/single_cell/study/SCP948/robust-decomposition-of-cell-type-mixtures-in-spatial-transcriptomics). "Filtered" dataset is one with "Reject" cells removed.
+```{r Load Data, message=FALSE}
+counts <- read_csv(fs::path(data_dir, "cerebellum_counts_filtered.csv"))
+coords <- read_csv(fs::path(data_dir, "cerebellum_coords.csv"), col_names=FALSE)
+names(coords) <- c("x","y")
+
+# cell type assignments
+assignments <- read_csv(fs::path(data_dir, "source/cell_assignments_filtered.csv"))
+assignments <- assignments$first_type
+```
+
+Process data and perform PCA
+```{r Perform PCA}
+norm_counts <- normalizeCounts(counts, transform="log")
+pca <- calculatePCA(norm_counts) # Columns are cells/spots
+```
+
+Now, compute concordex neighborhood consolidation matrix with cell type labels (discrete). Identify SHRs by providing a bluster clustering parameters object to the `BLUSPARAM` argument.
+```{r Discrete Concordex}
+# defaults to 30 nn
+set.seed(5296)
+
+cdx_discrete <- calculateConcordex(
+    x=coords,
+    labels=assignments,
+    BLUSPARAM=bluster::MbkmeansParam(4,50))
+
+cdx_pred <- attr(cdx_discrete, "shrs")
+pl_data <- dplyr::mutate(coords, shr=cdx_pred)
+```
+
+```{r}
+p <- ggplot(pl_data, aes(x, y, color=shr)) + 
+    geom_point(size=1) + 
+    theme_minimal() +
+    scale_color_manual(values=c("#2CFFC6","#007756","#D5C711","#005685"))
+
+p
+```
+Now, visualize the NbC matrix as a heatmap for the disrete labels
+```{r}
+# Sort rows of neighborhood matrix for plotting
+hc <- fastcluster::hclust.vector(cdx_discrete, method='single')
+heat_data <- data.frame(hc_order=hc$order, sort_order=seq(nrow(cdx_discrete)))
+heat_data <- arrange(heat_data, hc_order)
+                        
+# Not ideal, but make cdx results dense
+heat_data <- cbind(heat_data, pl_data, as.matrix(cdx_discrete))
+heat_data <- arrange(heat_data, sort_order)
+
+heat_data$hc_order <- factor(heat_data$hc_order, levels=unique(heat_data$hc_order))
+                        
+```
+
+Tidy data for heatmap
+```{r}
+layer_order <- c("OL","GL","PBL","ML")
+
+heat_data <- heat_data |>
+    pivot_longer(-c(hc_order, sort_order, x, y, shr)) |>
+    mutate(
+        shr_pretty = case_when(
+            shr == "1" ~ "ML",
+            shr == "3" ~ "OL",
+            shr == "2" ~ "GL",
+            TRUE ~ "PBL"),
+        shr_pretty = factor(shr_pretty, levels=layer_order))
+```
+
+Plot heatmap
+```{r}
+p <- ggplot(heat_data, aes(x=name, y=hc_order)) +
+    geom_tile(aes(fill=value),linewidth=0) +
+    facet_grid(rows=vars(shr_pretty), scales='free_y',space='free_y', switch="y") +
+    labs(fill = "Fraction of\nneighbors") +
+    scale_x_discrete(expand=expansion(add=0)) +
+    scale_fill_distiller(
+        palette="Greys",
+        limits=c(0, 1.1),
+        breaks=c(0,0.5,1)) + 
+    theme_minimal() +
+    theme(
+        axis.title=element_blank(),
+        axis.text.y=element_blank(),
+        axis.text.x=element_text(angle=90, hjust=0.9),
+        strip.placement="outside",
+    )
+
+p
+```
+
+```{r Continuous Concordex}
+# defaults to 30 nn
+set.seed(5296)
+
+cdx_contin <- calculateConcordex(
+    x=coords,
+    labels=pca,
+    BLUSPARAM=bluster::MbkmeansParam(4,50))
+
+cdx_pred <- attr(cdx_contin, "shrs")
+pl_data <- dplyr::mutate(coords, shr=cdx_pred)
+```
+
+```{r}
+p <- ggplot(pl_data, aes(x, y, color=shr)) + 
+    geom_point(size=1) + 
+    theme_minimal() +
+    scale_color_manual(values=c("#2CFFC6","#007756","#D5C711","#005685"))
+
+p
+```
