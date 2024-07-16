@@ -43,8 +43,8 @@ Checkerboard data were generated using the script [here]() and stripe data were 
 df_checker <- read_csv(path(data_dir,"checkerboard/cell_metadata.csv"))
 df_stripe  <- read_csv(path(data_dir,"stripe/cell_metadata.csv"))
 
-df_checker <- arrange(df_checker, spatial_order)
-df_stripe <- arrange(df_stripe, spatial_order)
+df_checker <- arrange(df_checker, spatial_index)
+df_stripe <- arrange(df_stripe, spatial_index)
 
 # Assignments for computing NbC matrix
 labs_checker <- df_checker$Group
