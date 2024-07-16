@@ -1,0 +1,87 @@
+---
+title: "Concordex Liver Figures"
+author: "Kayla Jackson"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+library(knitr)
+
+# Set global chunk options
+opts_chunk$set(
+  echo = FALSE,     # Display R code in the output
+  warning = FALSE, # Suppress warnings
+  message = FALSE,  # Suppress messages
+  cache.extra=rand_seed
+
+)
+
+set.seed(5296)
+```
+
+Load  `concordexR` and some extra libraries for plotting and utility functions. 
+
+```{r Load Libraries, warning=FALSE, message=FALSE}
+library(tidyr)
+library(dplyr)
+
+library(ggplot2)
+library(scattermore)
+library(fs)
+library(readr)
+
+# devtools::install_github("pachterlab/concordexR")
+library(concordexR)
+
+data_dir <- fs::path_wd("data")
+```
+
+# Load Data
+All li
+```{r}
+meta <- read_csv(path(data_dir,"liver/cell_meta.csv"))
+```
+
+# concordex Results
+
+```{r checker}
+# defaults to 30 nn
+set.seed(5296)
+
+coords <- meta[,c("center_x","center_y")]
+
+cdx <- calculateConcordex(
+    x=coords,
+    labels=as.character(meta$leiden),
+    BLUSPARAM=bluster::MbkmeansParam(4,50))
+
+cdx_pred <- attr(cdx, "shrs")
+pl_data <- dplyr::mutate(coords, shr=cdx_pred)
+```
+
+# Plot SHRs
+```{r}
+p <- ggplot(pl_data, aes(center_x, center_y, color=shr)) + 
+    geom_scattermore() + 
+    theme_minimal() 
+
+p
+```
+
+```{r}
+mask <- between(meta$fov, 500, 999) # to match np.arange(500,1000)
+
+
+cdx_small <- calculateConcordex(
+    x=coords[mask,],
+    labels=as.character(meta$leiden)[mask],
+    BLUSPARAM=bluster::MbkmeansParam(4,50))
+
+
+cdx_pred <- attr(cdx, "shrs")
+pl_data <- dplyr::mutate(coords, shr=cdx_pred)
+
+```
+
