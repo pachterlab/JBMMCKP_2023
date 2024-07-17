@@ -1,0 +1,305 @@
+---
+title: "Concordex Nonspatial Results"
+output: html_notebook
+---
+```{r setup, include=FALSE, root.dir=".."}
+library(knitr)
+
+# Set global chunk options
+opts_chunk$set(
+  echo = FALSE,     # Display R code in the output
+  warning = FALSE, # Suppress warnings
+  message = FALSE,  # Suppress messages
+  cache.extra=rand_seed
+)
+
+opts_knit$set(
+  root.dir="JBMMCP_2023/"
+)
+
+
+set.seed(5296)
+```
+
+Load  `concordexR` and some extra libraries for plotting and utility functions. 
+
+```{r Load Libraries, warning=FALSE, message=FALSE}
+library(tidyr)
+library(dplyr)
+library(glue)
+
+library(ggplot2)
+library(patchwork)
+library(scattermore)
+library(fs)
+library(readr)
+library(vroom)
+
+# devtools::install_github("pachterlab/concordexR")
+library(concordexR)
+
+data_dir <- path_wd("data/nonspatial")
+# data_dir
+```
+
+Set some constants and load data
+```{r}
+# Change to `ss` to generate stabilized, scaled plots
+norm_method <- "log" # OR "ss"
+small_clusts <- paste0('cluster_', 14:19)
+
+```
+
+# Load Data
+```{r Load Data}
+# Load UMAP coordinates
+meta <- read_csv(path(data_dir, "umap-coords.csv"))
+meta <- meta %>% mutate(cluster=paste("Cluster",cluster))
+
+pca <- vroom(
+  path(data_dir,glue("pca-{norm_method}.csv")), 
+  col_names=FALSE)
+```
+
+# concordex Results
+## Using UMAP/PCA coordinates and cluster labels
+
+```{r Concordex-UMAP-clust}
+coord_labs <- glue("umap_{norm_method}_{c('x','y')}")
+coords <- meta[,coord_labs]
+
+cdx_clust <- calculateConcordex(
+    x=coords,
+    labels=as.character(meta$cluster), 
+    compute_similarity=TRUE
+)
+```
+Arrange rows of heatmap for plotting
+```{r}
+# Sort rows of neighborhood matrix for plotting
+hc <- fastcluster::hclust.vector(cdx_clust, method='single')
+heat_data <- data.frame(hc_order=hc$order, sort_order=seq(nrow(cdx_clust)))
+heat_data <- arrange(heat_data, hc_order)
+                        
+# Not ideal, but make cdx results dense
+heat_data <- cbind(heat_data, meta['cluster'], as.matrix(cdx_clust))
+heat_data <- arrange(heat_data, sort_order)
+
+heat_data$hc_order <- factor(heat_data$hc_order, levels=unique(heat_data$hc_order))
+```
+Plot heatmap
+```{r Plot Concordex-UMAP-clust}
+heat_data <- heat_data |>
+    pivot_longer(-c(hc_order, sort_order, cluster))
+
+sim_data <- attr(cdx_clust,'similarity')
+sim_data <- data.frame(cluster=dimnames(sim_data)[[1]],sim_data) |> 
+  pivot_longer(-cluster)
+
+s <- ggplot(sim_data, aes(x=name, y=cluster)) + 
+  geom_tile(aes(fill=value), linewidth=0) +
+  theme_minimal() +
+    theme(
+        axis.title=element_blank(),
+        axis.text.x=element_text(angle=90, hjust=0.9),
+        strip.placement="outside",
+    )
+p <- ggplot(heat_data, aes(x=name, y=hc_order)) +
+    geom_tile(aes(fill=value),linewidth=0) +
+    facet_grid(rows=vars(cluster), scales='free_y', switch="y") +
+    labs(fill = "Fraction of\nneighbors") +
+    scale_x_discrete(expand=expansion(add=0)) +
+    scale_fill_distiller(
+        palette="Greys",
+        limits=c(0, 1.1),
+        breaks=c(0,0.5,1)) + 
+    theme_minimal() +
+    theme(
+        axis.title=element_blank(),
+        axis.text.y=element_blank(),
+        axis.text.x=element_text(angle=90, hjust=0.9),
+        strip.placement="outside",
+    )
+
+s|p
+```
+
+Now, compute concordex NbC using PCA coordinates and cluster labels
+```{r Concordex-PCA-clust}
+cdx_clust <- calculateConcordex(
+    x=pca,
+    labels=as.character(meta$cluster), 
+    compute_similarity=TRUE
+)
+```
+
+Arrange rows of heatmap for plotting
+```{r}
+# Sort rows of neighborhood matrix for plotting
+hc <- fastcluster::hclust.vector(cdx_clust, method='single')
+heat_data <- data.frame(hc_order=hc$order, sort_order=seq(nrow(cdx_clust)))
+heat_data <- arrange(heat_data, hc_order)
+                        
+# Not ideal, but make cdx results dense
+heat_data <- cbind(heat_data, meta['cluster'], as.matrix(cdx_clust))
+heat_data <- arrange(heat_data, sort_order)
+
+heat_data$hc_order <- factor(heat_data$hc_order, levels=unique(heat_data$hc_order))
+```
+Plot heatmap
+```{r Plot Concordex-PCA-clust}
+heat_data <- heat_data |>
+    pivot_longer(-c(hc_order, sort_order, cluster))
+
+sim_data <- attr(cdx_clust,'similarity')
+sim_data <- data.frame(cluster=dimnames(sim_data)[[1]],sim_data) |> 
+  pivot_longer(-cluster)
+
+s <- ggplot(sim_data, aes(x=name, y=cluster)) + 
+  geom_tile(aes(fill=value), linewidth=0) +
+  theme_minimal() +
+    theme(
+        axis.title=element_blank(),
+        axis.text.x=element_text(angle=90, hjust=0.9),
+        strip.placement="outside",
+    )
+p <- ggplot(heat_data, aes(x=name, y=hc_order)) +
+    geom_tile(aes(fill=value),linewidth=0) +
+    facet_grid(rows=vars(cluster), scales='free_y', switch="y") +
+    labs(fill = "Fraction of\nneighbors") +
+    scale_x_discrete(expand=expansion(add=0)) +
+    scale_fill_distiller(
+        palette="Greys",
+        limits=c(0, 1.1),
+        breaks=c(0,0.5,1)) + 
+    theme_minimal() +
+    theme(
+        axis.title=element_blank(),
+        axis.text.y=element_blank(),
+        axis.text.x=element_text(angle=90, hjust=0.9),
+        strip.placement="outside",
+    )
+
+s|p
+```
+
+## Using UMAP/PCA coordinates and growth condition (utero) labels
+```{r Concordex-UMAP-utero}
+coord_labs <- glue("umap_{norm_method}_{c('x','y')}")
+coords <- meta[,coord_labs]
+
+cdx_utero <- calculateConcordex(
+    x=coords,
+    labels=as.character(meta$utero), 
+    compute_similarity=TRUE
+)
+```
+Arrange rows of heatmap for plotting
+```{r}
+# Sort rows of neighborhood matrix for plotting
+hc <- fastcluster::hclust.vector(cdx_utero, method='single')
+heat_data <- data.frame(hc_order=hc$order, sort_order=seq(nrow(cdx_utero)))
+heat_data <- arrange(heat_data, hc_order)
+                        
+# Not ideal, but make cdx results dense
+heat_data <- cbind(heat_data, meta['utero'], as.matrix(cdx_utero))
+heat_data <- arrange(heat_data, sort_order)
+
+heat_data$hc_order <- factor(heat_data$hc_order, levels=unique(heat_data$hc_order))
+```
+Plot heatmap
+```{r Plot Concordex-UMAP-utero}
+heat_data <- heat_data |>
+    pivot_longer(-c(hc_order, sort_order, utero))
+
+sim_data <- attr(cdx_clust,'similarity')
+sim_data <- data.frame(utero=dimnames(sim_data)[[1]],sim_data) |> 
+  pivot_longer(-cluster)
+
+s <- ggplot(sim_data, aes(x=name, y=utero)) + 
+  geom_tile(aes(fill=value), linewidth=0) +
+  theme_minimal() +
+    theme(
+        axis.title=element_blank(),
+        axis.text.x=element_text(angle=90, hjust=0.9),
+        strip.placement="outside",
+    )
+p <- ggplot(heat_data, aes(x=name, y=hc_order)) +
+    geom_tile(aes(fill=value),linewidth=0) +
+    facet_grid(rows=vars(utero), scales='free_y', switch="y") +
+    labs(fill = "Fraction of\nneighbors") +
+    scale_x_discrete(expand=expansion(add=0)) +
+    scale_fill_distiller(
+        palette="Greys",
+        limits=c(0, 1.1),
+        breaks=c(0,0.5,1)) + 
+    theme_minimal() +
+    theme(
+        axis.title=element_blank(),
+        axis.text.y=element_blank(),
+        axis.text.x=element_text(angle=90, hjust=0.9),
+        strip.placement="outside",
+    )
+
+s|p
+```
+
+Now, compute concordex NbC using PCA coordinates and utero labels
+```{r Concordex-PCA-utero}
+cdx_utero <- calculateConcordex(
+    x=pca,
+    labels=as.character(meta$utero), 
+    compute_similarity=TRUE
+)
+```
+
+Arrange rows of heatmap for plotting
+```{r}
+# Sort rows of neighborhood matrix for plotting
+hc <- fastcluster::hclust.vector(cdx_utero, method='single')
+heat_data <- data.frame(hc_order=hc$order, sort_order=seq(nrow(cdx_utero)))
+heat_data <- arrange(heat_data, hc_order)
+                        
+# Not ideal, but make cdx results dense
+heat_data <- cbind(heat_data, meta['utero'], as.matrix(cdx_utero))
+heat_data <- arrange(heat_data, sort_order)
+
+heat_data$hc_order <- factor(heat_data$hc_order, levels=unique(heat_data$hc_order))
+```
+Plot heatmap
+```{r Plot Concordex-PCA-utero}
+heat_data <- heat_data |>
+    pivot_longer(-c(hc_order, sort_order, utero))
+
+sim_data <- attr(cdx_clust,'similarity')
+
+sim_data <- data.frame(utero=dimnames(sim_data)[[1]],sim_data) |> 
+  pivot_longer(-utero)
+
+s <- ggplot(sim_data, aes(x=name, y=utero)) + 
+  geom_tile(aes(fill=value), linewidth=0) +
+  theme_minimal() +
+    theme(
+        axis.title=element_blank(),
+        axis.text.x=element_text(angle=90, hjust=0.9),
+        strip.placement="outside",
+    )
+p <- ggplot(heat_data, aes(x=name, y=hc_order)) +
+    geom_tile(aes(fill=value),linewidth=0) +
+    facet_grid(rows=vars(utero), scales='free_y', switch="y") +
+    labs(fill = "Fraction of\nneighbors") +
+    scale_x_discrete(expand=expansion(add=0)) +
+    scale_fill_distiller(
+        palette="Greys",
+        limits=c(0, 1.1),
+        breaks=c(0,0.5,1)) + 
+    theme_minimal() +
+    theme(
+        axis.title=element_blank(),
+        axis.text.y=element_blank(),
+        axis.text.x=element_text(angle=90, hjust=0.9),
+        strip.placement="outside",
+    )
+
+s|p
+```
