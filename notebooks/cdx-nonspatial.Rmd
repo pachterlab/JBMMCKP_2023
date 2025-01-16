@@ -2,8 +2,9 @@
 title: "Concordex Nonspatial Results"
 output: html_notebook
 ---
-```{r setup, include=FALSE, root.dir=".."}
+```{r setup, include=FALSE}
 library(knitr)
+library(fs)
 
 # Set global chunk options
 opts_chunk$set(
@@ -14,7 +15,7 @@ opts_chunk$set(
 )
 
 opts_knit$set(
-  root.dir="JBMMCP_2023/"
+  root.dir=path_abs("..")
 )
 
 
@@ -39,7 +40,7 @@ library(vroom)
 library(concordexR)
 
 data_dir <- path_wd("data/nonspatial")
-# data_dir
+data_dir
 ```
 
 Set some constants and load data

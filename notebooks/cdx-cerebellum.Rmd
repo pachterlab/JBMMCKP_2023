@@ -149,3 +149,11 @@ p <- ggplot(pl_data, aes(x, y, color=shr)) +
 
 p
 ```
+
+
+# Session Info
+```{r}
+sessionInfo()
+```
+
+

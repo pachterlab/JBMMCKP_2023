@@ -15,7 +15,10 @@ opts_chunk$set(
   warning = FALSE, # Suppress warnings
   message = FALSE,  # Suppress messages
   cache.extra=rand_seed
+)
 
+opts_knit$set(
+  root.dir=fs::path_abs("..")
 )
 
 set.seed(5296)
@@ -36,10 +39,11 @@ library(readr)
 library(concordexR)
 
 data_dir <- fs::path_wd("data")
+data_dir
 ```
 
 # Load Data
-All li
+All liver data can be found [here]()
 ```{r}
 meta <- read_csv(path(data_dir,"liver/cell_meta.csv"))
 ```
@@ -83,5 +87,10 @@ cdx_small <- calculateConcordex(
 cdx_pred <- attr(cdx, "shrs")
 pl_data <- dplyr::mutate(coords, shr=cdx_pred)
 
+```
+
+# Session Info
+```{r}
+sessionInfo()
 ```
 
